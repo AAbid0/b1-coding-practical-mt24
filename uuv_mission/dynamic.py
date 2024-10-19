@@ -3,6 +3,8 @@ from dataclasses import dataclass
 import numpy as np
 import matplotlib.pyplot as plt
 from terrain import generate_reference_and_limits
+from control import Controller
+
 
 class Submarine:
     def __init__(self):
@@ -76,16 +78,12 @@ class Mission:
     @classmethod
     def from_csv(cls, file_name: str) -> Mission:
         # Use numpy to load the CSV file
-        data = np.loadtxt(file_name, delimiter=',', skiprows=1)  # Assuming the first row is the header
-        
-        # Extract each column: reference, cave_height, and cave_depth
+        data = np.loadtxt(file_name, delimiter=',', skiprows=1)
         reference = data[:, 0]  # First column is the target reference
         cave_height = data[:, 1]  # Second column is the cave height
         cave_depth = data[:, 2]  # Third column is the cave depth
 
-        # Create and return a Mission instance with the extracted data
         return cls(reference, cave_height, cave_depth)
-
 
 class ClosedLoop:
     def __init__(self, plant: Submarine, controller):
@@ -105,7 +103,9 @@ class ClosedLoop:
         for t in range(T):
             positions[t] = self.plant.get_position()
             observation_t = self.plant.get_depth()
-            # Call your controller here
+            reference_t = mission.reference[t]     # Reference depth at time t
+            # Compute the control action using the controller
+            control_action = self.controller.control(reference_t, observation_t)
             self.plant.transition(actions[t], disturbances[t])
 
         return Trajectory(positions)
@@ -113,3 +113,5 @@ class ClosedLoop:
     def simulate_with_random_disturbances(self, mission: Mission, variance: float = 0.5) -> Trajectory:
         disturbances = np.random.normal(0, variance, len(mission.reference))
         return self.simulate(mission, disturbances)
+
+
